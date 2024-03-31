@@ -279,3 +279,6 @@ Apoi accesam in browser: http://ip172-18-0-53-cnvvqpaim2rg00cceblg-3000.direct.l
 # Laborator 4 - Portainer + CI/CD
 ## Portainer
 
+```bash
+gitlab-runner register  --url https://gitlab.com  --token glrt-fVzZhmWkfn6EVXwWYLPW
+```
