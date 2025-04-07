@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: testapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: testapp
+      version: "1"
+  template:
+    metadata:
+      labels:
+        app: testapp
+        version: "1"
+    spec:
+      containers:
+        - name: testapp
+          image: raduioanciobanu/cloudcomputing:example
+          ports:
+          - containerPort: 5000
+            name: http
+            protocol: TCP

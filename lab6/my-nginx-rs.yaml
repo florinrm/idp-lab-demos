@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: nume
+spec:
+  replicas: 4 # numărul de replici ale pod-ului
+  selector:
+    matchLabels:
+      app: containerlabel
+  template:
+    metadata:
+      name: pod-template
+      labels:
+        app: containerlabel
+    spec:
+      containers:
+      - name: container
+        image: nginx

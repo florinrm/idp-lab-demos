@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cc-dep-01
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: lab3cc
+  template:
+    metadata:
+      labels:
+        app: lab3cc
+    spec:
+      containers:
+      - name: nginx
+        image: nginx

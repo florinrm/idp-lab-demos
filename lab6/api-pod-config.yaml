@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: apipod
+  labels:
+    app: api
+spec:
+  containers:
+    - image: florinrm/api
+      name: apicontainer
+      env:
+        - name: PGUSER
+          value: "admin"
+        - name: PGPASSWORD
+          value: "admin"
+        - name: PGDATABASE
+          value: "books"
+        - name: PGHOST
+          value: "postgres"
+        - name: PGPORT
+          value: "5432"
+      ports:
+      - containerPort: 80
