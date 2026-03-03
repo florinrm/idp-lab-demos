@@ -65,28 +65,7 @@ docker container run --name c2 -d -it --network=c1-c2-bridge alpine
 - check containers from a network: `docker network inspect c1-c2-bridge`
 
 ### Volumes
-
-#### Volumes using OverlayFS sau AUFS
-```bash
-docker container run --name c1 -ti alpine sh
-# in container
-mkdir /test && echo hello > /test/hello.txt
-exit
-
-docker container inspect c1
-docker info | grep -i storage
-sudo su
-cd /var/lib/docker/overlay2/
-ls -latr
-# go to the last one
-```
-
-#### Volumes using local storage
-- starting a container in background mode and create a volume in `/test` folder for that container (creating volumes using ): `docker container run --name c2 -d -v /test alpine sh -c 'ping 8.8.8.8 > /test/ping.txt'`
-- inspect volumes of a given container: `docker container inspect -f "{{ json .Mounts }}" c2 | python -m json.tool`
-
-#### Volumes + bind mounts
-##### Bind mounts
+#### Bind mounts
 ```bash
 mkdir docker-demo
 cd docker-demo
@@ -97,7 +76,7 @@ docker run --rm -v $(pwd):/data alpine sh -c "echo hello > /data/test.txt"
 cat test.txt
 ```
 
-##### Named volumes
+#### Named volumes
 ```bash
 docker volume create test-volume
 docker run --rm -v test-volume:/data alpine sh -c "echo hello > /data/test.txt"
