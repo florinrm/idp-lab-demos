@@ -86,6 +86,22 @@ ls -latr
 - inspect volumes of a given container: `docker container inspect -f "{{ json .Mounts }}" c2 | python -m json.tool`
 
 #### Volumes + bind mounts
-- starting a container and associate a volume: `docker container run --name c2 -d --volume source=test,target=/test alpine sh -c 'ping 8.8.8.8 > /test/ping.txt'`
-- inspect volumes of a given container: `docker container inspect -f "{{ json .Mounts }}" c2 | python -m json.tool`
-- starting a containers and associate a bind mount: `docker container run --name c3 -d -it --mount type=bind,source="$(pwd)"/testidp/,target=/testidp2 alpine`
+##### Bind mounts
+```bash
+mkdir docker-demo
+cd docker-demo
+
+docker run --rm -v $(pwd):/data alpine sh -c "echo hello > /data/test.txt" 
+
+# then check the file in the current directory
+cat test.txt
+```
+
+##### Named volumes
+```bash
+docker volume create test-volume
+docker run --rm -v test-volume:/data alpine sh -c "echo hello > /data/test.txt"
+
+# create another container with the same volume
+docker run --rm -v test-volume:/data alpine cat /data/test.txt
+```
