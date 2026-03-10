@@ -76,209 +76,118 @@ Opriti rularea:
 docker compose -f docker-compose-local.yml down
 ```
 
+## Docker in Docker
+
+### Simple example
+
+- creating container
+```bash
+docker run -d \
+  --name dind \
+  --privileged \
+  -e DOCKER_TLS_CERTDIR= \
+  docker:27-dind
+
+docker ps
+```
+
+- running a command inside the container to create a new container inside the original one
+```bash
+docker exec -it dind sh
+
+docker version
+docker ps
+docker run --rm hello-world
+```
+
 ## Exercitiul 4
 
-Deschideti Play with Docker in browser si creati doua masini virtuale. Una va avea rol de manager.
+Folositi Docker in Docker - creati 3 containere: unul manager si 2 worker.
 
-Va conectati de pe local la masinile virtuale create in Play with Docker:
+Creati reteaua pentru containere:
 ```bash
-ssh ip172-18-0-35-cnn1o9aim2rg00cneoo0@direct.labs.play-with-docker.com # prima masina virtuala
-
-ssh ip172-18-0-9-cnn1o9aim2rg00cneoo0@direct.labs.play-with-docker.com # a doua masina virtuala 
+docker network create dind-net
 ```
 
-Pe prima masina virtuala initializati cluster-ul de Docker Swarm:
+Create containerele (primul e manager, celelalte doua worker):
 ```bash
-docker swarm init --advertise-addr 192.168.0.8 # adresa IP luata din pagina de UI sau din ip addr
+docker run -d \
+  --name swarm-manager \
+  --hostname swarm-manager \
+  --network dind-net \
+  --privileged \
+  -p 3000:3000 \
+  -p 8080:8080 \
+  -e DOCKER_TLS_CERTDIR= \
+  docker:27-dind
+
+docker run -d \
+  --name swarm-worker1 \
+  --hostname swarm-worker1 \
+  --network dind-net \
+  --privileged \
+  -p 3001:3000 \
+  -p 8081:8080 \
+  -e DOCKER_TLS_CERTDIR= \
+  docker:27-dind
+
+docker run -d \
+  --name swarm-worker2 \
+  --hostname swarm-worker2 \
+  --network dind-net \
+  --privileged \
+  -p 3002:3000 \
+  -p 8082:8080 \
+  -e DOCKER_TLS_CERTDIR= \
+  docker:27-dind
 ```
 
-Apoi copiati fisierul de Docker Stack + fisierul de SQL in prima masina virtuala:
+Initiem swarm-ul:
 ```bash
-scp -r docker-compose-stack.yaml Database/ ip172-18-0-35-cnn1o9aim2rg00cneoo0@direct.labs.play-with-docker.com:~/
+docker exec swarm-manager docker swarm init --advertise-addr eth0
+
+docker exec swarm-manager docker swarm join-token worker -q
+
+TOKEN=$(docker exec swarm-manager docker swarm join-token worker -q)
 ```
 
-Pe prima masina virtuala rulati comanda de mai sus pentru a porni serviciul Docker:
+Adaugam workerii:
 ```bash
-docker stack deploy -c docker-compose-stack.yml lab2
+docker exec swarm-worker1 docker swarm join \
+  --token "$TOKEN" \
+  --advertise-addr eth0 \
+  swarm-manager:2377
+
+docker exec swarm-worker2 docker swarm join \
+  --token "$TOKEN" \
+  --advertise-addr eth0 \
+  swarm-manager:2377
+
+docker exec swarm-manager docker node ls
 ```
 
-Verificam ca ruleaza:
+Copiem fisierele si folderul de baze de date in containerul manager:
 ```bash
-docker stack ps lab2
+docker exec swarm-manager mkdir -p /stack/Database
+
+docker cp ./docker-compose-stack.yml swarm-manager:/stack/stack.yaml
+docker cp ./Database/init-db.sql swarm-manager:/stack/Database/init-db.sql
+
+docker exec swarm-manager ls -R /stack
 ```
 
-Adaugam a doua masina virtuala in cluster-ul Docker (de rulat in masina virtuala):
+Facem deploy la stack in containerul manager:
 ```bash
-docker swarm join --token SWMTKN-1-3n0wrxbcvrh3do7oflvhghvx2xhagc4dcrcarvwef1mv7hqo4k-f42t08hq62365kdd96vqxyc06 192.168.0.8:2377
+docker exec swarm-manager sh -c 'cd /stack && docker stack deploy -c stack.yaml laborator3'
+
+docker exec swarm-manager docker stack ls
+docker exec swarm-manager docker stack services laborator3
+docker exec swarm-manager docker stack ps laborator3
 ```
 
-De rulat (pentru ambele masini):
+Stergem tot:
 ```bash
-curl --location --request GET 'http://ip172-18-0-35-cnn1o9aim2rg00cneoo0-3000.direct.labs.play-with-docker.com/api/books/' \
---header 'Content-Type: application/json'
-
-curl --location 'http://ip172-18-0-35-cnn1o9aim2rg00cneoo0-3000.direct.labs.play-with-docker.com/api/books/' \
---header 'Content-Type: application/json' \
---data '{
-    "title": "Morometii",
-    "author": "Marin Preda", 
-    "genre": "Realism"
-}'
-
-curl --location 'http://ip172-18-0-9-cnn1o9aim2rg00cneoo0-3000.direct.labs.play-with-docker.com/api/books/' \
---header 'Content-Type: application/json'
-```
-
-## Exercitiul 5
-
-Deschideti Play with Docker in browser si creati doua masini virtuale. Una va avea rol de manager.
-
-Va conectati de pe local la masinile virtuale create in Play with Docker:
-```bash
-ssh ip172-18-0-4-cnn2d8ol2o9000fbhl8g@direct.labs.play-with-docker.com # prima masina virtuala
-
-ssh ip172-18-0-14-cnn2d8ol2o9000fbhl8g@direct.labs.play-with-docker.com # a doua masina virtuala 
-```
-
-Pe prima masina virtuala initializati cluster-ul de Docker Swarm:
-```bash
-docker swarm init --advertise-addr 192.168.0.28 # adresa IP luata din pagina de UI sau din ip addr
-```
-
-Pe prima masina virtuala cream secretele:
-```bash
-docker secret create lab3-user-secret Secrets/lab3-user-secret.txt
-
-docker secret create lab3-password-secret Secrets/lab3-password-secret.txt
-
-docker secret ls # afisam secretele create mai sus
-```
-
-Pe prima masina virtuala rulati comanda de mai sus pentru a porni serviciul Docker:
-```bash
-docker stack deploy -c docker-compose-stack-secrets.yml lab2
-```
-
-Verificam ca ruleaza:
-```bash
-docker stack ps lab2
-```
-
-Adaugam a doua masina virtuala in cluster-ul Docker (de rulat in masina virtuala):
-```bash
-docker swarm join --token SWMTKN-1-3n0wrxbcvrh3do7oflvhghvx2xhagc4dcrcarvwef1mv7hqo4k-f42t08hq62365kdd96vqxyc06 192.168.0.8:2377
-```
-
-De rulat (pentru ambele masini):
-```bash
-curl --location --request GET 'http://ip172-18-0-4-cnn2d8ol2o9000fbhl8g-3000.direct.labs.play-with-docker.com/api/books/' \
---header 'Content-Type: application/json' 
-
-curl --location 'http://ip172-18-0-4-cnn2d8ol2o9000fbhl8g-3000.direct.labs.play-with-docker.com/api/books/' \
---header 'Content-Type: application/json' \
---data '{
-    "title": "Delirul",
-    "author": "Marin Preda", 
-    "genre": "Realism"
-}'
-
-curl --location 'http://ip172-18-0-14-cnn2d8ol2o9000fbhl8g-3000.direct.labs.play-with-docker.com/api/books/' \
---data ''
-```
-
-# Demo laborator 3 - Docker Swarm persistence + Kong
-
-## Docker Swarm persistence
-
-Cream trei masini virtuale folosind Docker Machine (mai precis, un fork facut de Rancher - vezi [aici](https://gcbw.github.io/docker.github.io/machine/install-machine/)) - o sa facem doar pentru NFS:
-```bash
-docker-machine create --driver virtualbox myvm1
-
-docker-machine create --driver virtualbox myvm2
-
-docker-machine create --driver virtualbox myvm3
-
-docker-machine env myvm1 # aflam adresa IP a masinii virtuale
-
-docker-machine env myvm2
-
-docker-machine env myvm3
-
-docker-machine ssh myvm1
-
-docker-machine ssh myvm2
-
-docker-machine ssh myvm3
-
-docker-machine scp docker-stack-nfs.yml myvm1:. # copiem fisierul de Docker Stack pe myvm1
-```
-
-Initializam Swarm-ul pe myvm1:
-```bash
-docker swarm init --advertise-addr 192.168.99.100 # adresa luata din ip addr
-```
-
-Adaugam myvm2 si myvm3 in Swarm:
-```bash
-docker swarm join --token SWMTKN-1-4ca0w5i9vyma6s6of8zdileap7lk8tdm80qtyao03seioebthf-0uqbrlgrlo62ed4145behvqhm 192.168.99.100:2377
-```
-
-Promovam nodul corespunzator myvm2 ca nod manager din nodul lider (myvm1):
-```bash
-docker node ls # luam id-ul nodului
-
-docker node promote c8djejjv8nrh3xyycbt27xf7d
-```
-
-Lansam stiva de servicii (din myvm1):
-```bash
-docker stack deploy -c docker-stack-nfs.yml lab3-nfs
-```
-
-## Kong
-Cream 3 masini virtuale in Play With Docker (sau in Docker Machine, daca nu avem deja).
-
-Copiem fisierul de Docker Stack care are Kong pe masina lider:
-```bash
-scp docker-stack-kong.yml  ip172-18-0-53-cnvvqpaim2rg00cceblg@direct.labs.play-with-docker.com:.
-
-scp -r Database/ ip172-18-0-53-cnvvqpaim2rg00cceblg@direct.labs.play-with-docker.com:.
-```
-
-Apoi copiem folder-ul de Kong pe masina lider (acesta este folosit ca volum in fisierul de Docker Stack):
-```bash
-scp -r Kong/ ip172-18-0-53-cnvvqpaim2rg00cceblg@direct.labs.play-with-docker.com:.
-```
-
-Dam request:
-```bash
-curl --location 'http://ip172-18-0-53-cnvvqpaim2rg00cceblg.direct.labs.play-with-docker.com/api/books/' \
---header 'Content-Type: application/json' \
---header 'apikey: mobylab' \
---data '{
-    "title": "Delirul",
-    "author": "Marin Preda", 
-    "genre": "Realism"
-}'
-```
-
-Pentru Kong Plugins:
-```bash
-scp docker-stack-kong-plugins.yml   ip172-18-0-53-cnvvqpaim2rg00cceblg@direct.labs.play-with-docker.com:.
-
-scp -r prometheus/  ip172-18-0-53-cnvvqpaim2rg00cceblg@direct.labs.play-with-docker.com:.
-```
-
-Pornim stiva de servicii pe masina lider:
-```bash
-docker stack deploy -c docker-stack-kong-plugins.yml lab3-kong-plugins
-```
-
-Apoi accesam in browser: http://ip172-18-0-53-cnvvqpaim2rg00cceblg-3000.direct.labs.play-with-docker.com/ pentru Grafana
-
-# Laborator 4 - Portainer + CI/CD
-## Portainer
-
-```bash
-gitlab-runner register  --url https://gitlab.com  --token glrt-fVzZhmWkfn6EVXwWYLPW
+docker exec swarm-manager docker stack rm laborator3
+docker rm -f swarm-manager swarm-worker1 swarm-worker2
+docker network rm dind-net
 ```
